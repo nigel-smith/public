@@ -1,0 +1,392 @@
+import React, { useState, useEffect } from 'react';
+
+const SimpleFootballVotingApp = () => {
+  // State for players
+  const [players, setPlayers] = useState([
+    { id: 1, name: 'Alex', number: 7, votes: 0 },
+    { id: 2, name: 'Jamie', number: 10, votes: 0 },
+    { id: 3, name: 'Charlie', number: 9, votes: 0 }
+  ]);
+  
+  // State for team name
+  const [teamName, setTeamName] = useState('U14 Tigers');
+  
+  // State for match history
+  const [matchHistory, setMatchHistory] = useState([]);
+  
+  // Timer states
+  const [time, setTime] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [period, setPeriod] = useState('First Half');
+  
+  // UI states
+  const [currentView, setCurrentView] = useState('voting');
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerNumber, setNewPlayerNumber] = useState('');
+  const [editingPlayerId, setEditingPlayerId] = useState(null);
+  
+  // Timer effect
+  useEffect(() => {
+    let interval = null;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setTime(prevTime => prevTime + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning]);
+  
+  // Format time for display
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  // Vote for a player
+  const handleVote = (playerId) => {
+    setPlayers(players.map(player => 
+      player.id === playerId ? { ...player, votes: player.votes + 1 } : player
+    ));
+  };
+  
+  // Add or update a player
+  const handlePlayerSubmit = () => {
+    if (newPlayerName.trim() && newPlayerNumber) {
+      if (editingPlayerId !== null) {
+        // Update existing player
+        setPlayers(players.map(player => 
+          player.id === editingPlayerId ? 
+          { ...player, name: newPlayerName, number: parseInt(newPlayerNumber) } : 
+          player
+        ));
+        setEditingPlayerId(null);
+      } else {
+        // Add new player
+        const id = Math.max(0, ...players.map(p => p.id)) + 1;
+        setPlayers([...players, {
+          id,
+          name: newPlayerName,
+          number: parseInt(newPlayerNumber),
+          votes: 0
+        }]);
+      }
+      // Reset form
+      setNewPlayerName('');
+      setNewPlayerNumber('');
+    }
+  };
+  
+  // Start editing a player
+  const startEdit = (player) => {
+    setNewPlayerName(player.name);
+    setNewPlayerNumber(player.number.toString());
+    setEditingPlayerId(player.id);
+  };
+  
+  // Delete a player
+  const deletePlayer = (playerId) => {
+    setPlayers(players.filter(p => p.id !== playerId));
+    if (editingPlayerId === playerId) {
+      setEditingPlayerId(null);
+      setNewPlayerName('');
+      setNewPlayerNumber('');
+    }
+  };
+  
+  // Save current match and reset votes
+  const saveMatch = () => {
+    if (players.some(p => p.votes > 0)) {
+      const match = {
+        id: Date.now(),
+        date: new Date().toLocaleDateString(),
+        players: [...players],
+        winner: [...players].sort((a, b) => b.votes - a.votes)[0]
+      };
+      setMatchHistory([match, ...matchHistory]);
+      
+      // Reset votes
+      setPlayers(players.map(p => ({ ...p, votes: 0 })));
+    }
+  };
+  
+  // Timer controls
+  const startTimer = () => setIsRunning(true);
+  const pauseTimer = () => setIsRunning(false);
+  const resetTimer = () => {
+    setTime(0);
+    setIsRunning(false);
+  };
+  const switchPeriod = () => {
+    setPeriod(period === 'First Half' ? 'Second Half' : 'First Half');
+    resetTimer();
+  };
+  
+  // Tab styles
+  const getTabStyle = (tab) => {
+    return currentView === tab 
+      ? "px-4 py-2 bg-blue-600 text-white font-medium rounded-t" 
+      : "px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 font-medium rounded-t";
+  };
+  
+  return (
+    <div className="max-w-lg mx-auto p-4 bg-white shadow rounded">
+      <h1 className="text-2xl font-bold text-center mb-2 text-blue-800">{teamName}</h1>
+        
+      {/* Tabs */}
+      <div className="flex mb-4 space-x-1">
+        <button 
+          className={getTabStyle('voting')}
+          onClick={() => setCurrentView('voting')}
+        >
+          Vote
+        </button>
+        <button 
+          className={getTabStyle('players')}
+          onClick={() => setCurrentView('players')}
+        >
+          Players
+        </button>
+        <button 
+          className={getTabStyle('history')}
+          onClick={() => setCurrentView('history')}
+        >
+          History
+        </button>
+        <button 
+          className={getTabStyle('timer')}
+          onClick={() => setCurrentView('timer')}
+        >
+          Timer
+        </button>
+      </div>
+      
+      {/* Voting View */}
+      {currentView === 'voting' && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Vote for Player of the Match</h2>
+          <div className="space-y-3">
+            {players.sort((a, b) => a.number - b.number).map(player => (
+              <div key={player.id} className="border p-3 rounded flex justify-between items-center">
+                <div>
+                  <span className="inline-block w-8 h-8 bg-blue-500 text-white text-center rounded-full leading-8">
+                    {player.number}
+                  </span>
+                  <span className="ml-2 font-medium">{player.name}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-lg">{player.votes}</span>
+                  <button 
+                    className="bg-green-500 text-white px-3 py-1 rounded"
+                    onClick={() => handleVote(player.id)}
+                  >
+                    Vote
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button 
+            className="w-full mt-4 bg-blue-500 text-white py-2 rounded font-bold"
+            onClick={saveMatch}
+          >
+            Save & Start New Match
+          </button>
+        </div>
+      )}
+      
+      {/* Players Management */}
+      {currentView === 'players' && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Manage Players</h2>
+          
+          {/* Team name */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
+            <input
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+          
+          {/* Player form */}
+          <div className="mb-6 p-4 bg-gray-50 rounded">
+            <h3 className="font-medium mb-2">
+              {editingPlayerId !== null ? 'Edit Player' : 'Add New Player'}
+            </h3>
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded"
+                  placeholder="Player name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Number</label>
+                <input
+                  type="number"
+                  value={newPlayerNumber}
+                  onChange={(e) => setNewPlayerNumber(e.target.value)}
+                  className="w-full px-3 py-2 border rounded"
+                  placeholder="Shirt #"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              {editingPlayerId !== null && (
+                <button 
+                  className="mr-2 bg-gray-300 px-3 py-2 rounded"
+                  onClick={() => {
+                    setEditingPlayerId(null);
+                    setNewPlayerName('');
+                    setNewPlayerNumber('');
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+              <button 
+                className="bg-blue-500 text-white px-3 py-2 rounded"
+                onClick={handlePlayerSubmit}
+              >
+                {editingPlayerId !== null ? 'Update Player' : 'Add Player'}
+              </button>
+            </div>
+          </div>
+          
+          {/* Player list */}
+          <h3 className="font-medium mb-2">Current Squad ({players.length})</h3>
+          <div className="space-y-2">
+            {players.sort((a, b) => a.number - b.number).map(player => (
+              <div key={player.id} className="flex justify-between items-center p-3 border rounded">
+                <div className="flex items-center">
+                  <span className="inline-block w-8 h-8 bg-blue-500 text-white text-center rounded-full leading-8">
+                    {player.number}
+                  </span>
+                  <span className="ml-2">{player.name}</span>
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => startEdit(player)}
+                    className="p-1 text-blue-600"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => deletePlayer(player.id)}
+                    className="p-1 text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+            {players.length === 0 && (
+              <p className="text-gray-500 text-center py-4">No players added yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Match History */}
+      {currentView === 'history' && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Match History</h2>
+          {matchHistory.length > 0 ? (
+            <div className="space-y-4">
+              {matchHistory.map(match => {
+                const winner = match.winner;
+                return (
+                  <div key={match.id} className="border rounded p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="font-medium">{match.date}</div>
+                    </div>
+                    {winner && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
+                        <div className="font-bold">Player of the Match</div>
+                        <div>#{winner.number} {winner.name} ({winner.votes} votes)</div>
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Voting Results</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {match.players
+                          .filter(p => p.votes > 0)
+                          .sort((a, b) => b.votes - a.votes)
+                          .map(player => (
+                            <div key={player.id} className="flex items-center">
+                              <span className="inline-block w-6 h-6 bg-blue-500 text-white text-center rounded-full text-xs leading-6">
+                                {player.number}
+                              </span>
+                              <span className="ml-1 text-sm">{player.name}</span>
+                              <span className="ml-auto font-medium">{player.votes}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No match history yet.</p>
+          )}
+        </div>
+      )}
+      
+      {/* Timer */}
+      {currentView === 'timer' && (
+        <div className="flex flex-col items-center">
+          <h2 className="text-xl font-semibold mb-4">Match Timer</h2>
+          
+          <div className="text-6xl font-mono font-bold mb-6">{formatTime(time)}</div>
+          
+          <div className="mb-6 text-xl font-bold">
+            {period}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
+            {isRunning ? (
+              <button 
+                className="bg-yellow-500 text-white py-3 px-4 rounded font-bold"
+                onClick={pauseTimer}
+              >
+                Pause
+              </button>
+            ) : (
+              <button 
+                className="bg-green-500 text-white py-3 px-4 rounded font-bold"
+                onClick={startTimer}
+              >
+                Start
+              </button>
+            )}
+            <button 
+              className="bg-red-500 text-white py-3 px-4 rounded font-bold"
+              onClick={resetTimer}
+            >
+              Reset
+            </button>
+          </div>
+          
+          <button 
+            className="bg-blue-500 text-white py-3 px-4 rounded font-bold w-full max-w-xs"
+            onClick={switchPeriod}
+          >
+            Switch to {period === 'First Half' ? 'Second Half' : 'First Half'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SimpleFootballVotingApp;
